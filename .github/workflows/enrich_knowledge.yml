@@ -1,0 +1,38 @@
+name: 🧠 Coolbox AI Knowledge Enrichment (Data Splitting)
+
+on:
+  schedule:
+    # ⏰ 한국 시간(KST) 매일 새벽 3:00 (UTC 18:00)에 백그라운드 AI 가공 구동 (수집 종료 후 가동)
+    - cron: '0 18 * * *'
+  workflow_dispatch: # 개발자가 깃허브 웹 콘솔 및 모바일에서 "Run workflow" 버튼을 눌러 개별 수동 가동 가능하게 설정
+
+jobs:
+  enrich:
+    name: 🧠 AI 데이터 지능화 가공 실행
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+
+    steps:
+      - name: 📥 소스코드 체크아웃
+        uses: actions/checkout@v3
+
+      - name: 📦 pnpm 설치
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: 🟢 Node.js 환경 활성화 (v22)
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: 📦 의존성 패키지 설치
+        run: pnpm install node-fetch dotenv @supabase/supabase-js
+
+      - name: 🧠 백그라운드 AI 데이터 지능화 가공 파이프라인 구동
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.VITE_OPENROUTER_API_KEY }}
+        run: node scripts/enrich_food_knowledge.js

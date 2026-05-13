@@ -1,0 +1,42 @@
+name: 🛰️ Coolbox Background Public Data Collector
+
+on:
+  schedule:
+    # ⏰ 한국 시간(KST) 매일 새벽 1:00 (UTC 16:00)에 백그라운드 자동 수집 구동
+    - cron: '0 16 * * *'
+  workflow_dispatch: # 개발자가 깃허브 웹 콘솔에서 "Run workflow" 버튼을 눌러 수동 가동 가능하게 설정
+
+jobs:
+  collect:
+    name: ⚙️ 공공데이터 20초 주기 수집 실행
+    runs-on: ubuntu-latest
+    timeout-minutes: 360 # 깃허브 액션 최대 수명인 6시간 설정 (999회 * 20초 = 약 5.5시간 완벽 수용)
+
+    steps:
+      - name: 📥 소스코드 체크아웃
+        uses: actions/checkout@v3
+
+      - name: 📦 pnpm 설치
+        uses: pnpm/action-setup@v2
+        with:
+          version: 8
+
+      - name: 🟢 Node.js 환경 활성화 (v22 - 최신 WebSocket 기본 지원)
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+          cache: 'pnpm'
+
+      - name: 📦 의존성 패키지 설치
+        run: pnpm install node-fetch dotenv @supabase/supabase-js
+
+      - name: 🚀 이원화 수집기 가동 (999회 / 20초 간격)
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          VITE_FOOD_SAFETY_API_KEY: ${{ secrets.VITE_FOOD_SAFETY_API_KEY }}
+          VITE_RECIPE_API_KEY: ${{ secrets.VITE_RECIPE_API_KEY }}
+          VITE_NUTRITION_API_KEY: ${{ secrets.VITE_NUTRITION_API_KEY }}
+        run: node scripts/collect_public_data.js
+
+
