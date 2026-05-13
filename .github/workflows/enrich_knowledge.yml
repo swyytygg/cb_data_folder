@@ -25,8 +25,7 @@ jobs:
         uses: actions/setup-node@v3
         with:
           node-version: '22'
-          cache: 'pnpm'
-
+         
       - name: 📦 의존성 패키지 설치
         run: pnpm install node-fetch dotenv @supabase/supabase-js
 
