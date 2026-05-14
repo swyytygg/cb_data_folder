@@ -93,7 +93,7 @@ async function fetchRawPublicData() {
     .select('id, item_name, storage_tip, storage_method, category_id')
     .gt('id', startId)
     .order('id', { ascending: true })
-    .limit(5); // AI 토큰 속도 제한(Rate Limit)을 고려해 한 번에 5개씩 나누어 안전하게 처리합니다.
+    .limit(100); // AI 토큰 속도 제한(Rate Limit)을 고려해 한 번에 5개씩 나누어 안전하게 처리합니다.
 
 
   if (error) {
@@ -305,14 +305,21 @@ async function runPipeline() {
   console.log("=========================================================");
 
   // 1단계: 미가공 공공데이터 확보
-  const rawItems = await fetchRawPublicData();
+  let hasMoreData = true;
 
-  if (rawItems.length === 0) {
-    console.log("ℹ️ 더 이상 가공할 미정제 데이터가 없습니다. 파이프라인 대기 중.");
-  } else {
-    // 2단계: 품목별로 순회하며 AI 가공 및 타겟 테이블로 분배/저장 수행
-    for (const item of rawItems) {
-      await processAndDistributeKnowledge(item);
+  while (hasMoreData) {
+    const rawItems = await fetchRawPublicData();
+
+    if (rawItems.length === 0) {
+      console.log("ℹ️ 1만 줄 공공데이터 지식화 및 적재 완수! 파이프라인 대기 중.");
+      hasMoreData = false;
+    } else {
+      // 2단계: 품목별로 순회하며 AI 가공 및 타겟 테이블로 분배/저장 수행
+      for (const item of rawItems) {
+        await processAndDistributeKnowledge(item);
+      }
+      // API 과부하 및 속도 제한 방지를 위해 100건 처리 후 2초간 안전 대기
+      await new Promise(resolve => setTimeout(resolve, 2000));
     }
   }
 
