@@ -185,16 +185,16 @@ async function processAndDistributeKnowledge(foodItem) {
     const parsedData = JSON.parse(cleanJsonText);
 
     // ---------------------------------------------------------------------
-    // 📥 2-A. 궁극의 백과사전 단일 마스터 테이블 (coolbox_knowledge_master) 원샷 통합 적재
+    // 📥 2-A. coolbox_ingredient_aliases (별칭 사전) 테이블 적재
     // ---------------------------------------------------------------------
-    console.log(`- 2-A단계: '${item_name}'의 별칭 사전 및 AI RAG 지식 데이터 통합 마스터 적재 중...`);
+    console.log(`- 2-A단계: '${item_name}'의 별칭 사전(Aliases) ${parsedData.aliases.length}건 적재 중...`);
     
     // 유니크 매핑을 위해 기본명과 AI 추출 별칭 리스트 합산 및 공백 제거
     const uniqueAliases = Array.from(new Set([item_name, ...parsedData.aliases]))
       .map(name => name.trim())
       .filter(Boolean);
 
-    // 🥇 1순위: 스크립트 내부 독립형 키워드 사전 우선 대조
+    // 🥇 1순위: 스크립트 내부 독립형 키워드 사전 우선 대조 (앱 소스 비공개 환경 대응 왕표 시스템)
     let ruleCategoryId = null;
     const ruleBook = [
       { id: 17, keywords: ["고추장","된장","케찹","마요네즈","소금","후추","간장", "올리고당", "식용유", "참기름", "식초", "굴소스", "머스타드","칠리소스","와사비","쌈장","연두","케첩","돈까스소스","허니머스타드","핫소스", "데리야끼소스","타르타르소스","발사믹소스", "핫칠리소스", "탕수육소스", "마늘소스", "매실원액", "설탕", "양념", "액젓", "살사","그라나파다노", "올리브유", "올리브오일", "카놀라유", "포도씨유", "아마씨유", "해바라기씨유","들기름","미원","다시다","MSG","밀가루","빵가루","중력분","생강","고춧가루","가루"] },
@@ -202,7 +202,8 @@ async function processAndDistributeKnowledge(foodItem) {
       { id: 14, keywords: ["아이스크림", "냉동만두", "냉동피자", "냉동식품", "냉동", "파르페", "베스킨라빈스31"] },
       { id: 13, keywords: ["김치", "멸치볶음", "장조림", "나물", "반찬", "젓갈", "진미채", "무침", "조림", "깍두기", "장아찌", "피클", "단무지", "계란찜", "총각김치", "파김치", "콩자반","무생채", "오이무침", "계란말이", "볶음김치", "명란", "찌개", "국", "탕", "찜"] },
       { id: 12, keywords: ["라면", "컵라면", "컵반", "핫도그", "햄버거", "도시락", "밀키트", "간편식", "즉석", "떡볶이", "볶음밥", "파스타", "짜장면"] },
-      { id: 11, keywords: ["물", "생수", "탄산수", "콜라", "사이다", "주스", "커피", "차", "음료", "맥주", "소주", "와인", "막걸리", "두유", "에이드", "식혜", "녹차", "홍차","물", "생수", "탄산수", "콜라", "사이다", "주스", "커피", "차", "음료", "맥주", "소주", "와인", "막걸리", "두유", "에이드", "식혜", "녹차", "홍차", "티백", "분말", "잎차", "분말차", "말차", "콤부차", "아이스티", "밀크티", "라떼분말", "드립백", "원두"] },
+      { id: 11, keywords: ["물", "생수", "탄산수", "콜라", "사이다", "주스", "커피", "차", "음료", "맥주", "소주", "와인", "막걸리", "두유", "에이드", "식혜", "녹차", "홍차","물", "생수", "탄산수", "콜라", "사이다", "주스", "커피", "차", "음료", "맥주", "소주", "와인", "막걸리", "두유", "에이드", "식혜", "녹차", "홍차", "티백", 
+        "분말", "잎차", "분말차", "말차", "콤부차", "아이스티", "밀크티", "라떼분말", "드립백", "원두"] },
       { id: 10, keywords: ["과자", "초콜릿", "사탕", "젤리", "감자칩", "스낵", "쿠키", "껌", "초코", "비스킷", "캬라멜"] },
       { id: 9, keywords: ["샐러드", "다이어트", "시저", "리코타"] },
       { id: 8, keywords: ["빵", "식빵", "베이글", "크루아상", "케이크", "샌드위치", "도넛", "카스텔라", "바게트", "소금빵", "단팥빵"] },
@@ -226,11 +227,15 @@ async function processAndDistributeKnowledge(foodItem) {
     }
 
     const targetCategoryId = ruleCategoryId || parsedData.best_category_id || category_id || 15;
+    
+    // ---------------------------------------------------------------------
+    // 📥 2-A. coolbox_knowledge_master 통합 테이블 적재 (INSERT)
+    // ---------------------------------------------------------------------
+    console.log(`- 2-A단계: '${item_name}'의 통합 지식 데이터 적재 중...`);
 
-    // 💡 [원샷 마스터 페이로드]: 카테고리 + 이름 + 별칭 + 3대 지식 원샷 병합
     const masterPayload = {
-      category_id: targetCategoryId,
       item_name: item_name,
+      category_id: targetCategoryId,
       aliases: uniqueAliases,
       short_storage_guide: parsedData.enriched_knowledge.short_storage_guide,
       easy_recipe: parsedData.enriched_knowledge.easy_recipe,
@@ -238,14 +243,14 @@ async function processAndDistributeKnowledge(foodItem) {
       updated_at: new Date().toISOString()
     };
 
-    const { error: masterErr } = await supabase
+    const { error: insertErr } = await supabase
       .from('coolbox_knowledge_master')
-      .upsert(masterPayload, { onConflict: 'item_name' });
+      .insert(masterPayload);
 
-    if (masterErr) {
-      console.error(`❌ [2-A] 마스터 백과사전 적재 에러:`, masterErr.message);
+    if (insertErr) {
+      console.error(`❌ [2-A] 통합 지식 적재 에러:`, insertErr.message);
     } else {
-      console.log(`✅ [PART 2] '${item_name}'의 별칭 및 지식 파티셔닝 원샷 적재 완수.`);
+      console.log(`✅ [PART 2] '${item_name}'의 지식 파티셔닝 적재 완수.`);
     }
 
     // 성공적으로 처리된 원본 ID 보존 업데이트
@@ -263,18 +268,20 @@ async function saveMockData(foodItem) {
   const { id, item_name, storage_method, category_id } = foodItem;
   const mockAliases = [item_name, `국산${item_name}`, `신선${item_name}`, `${item_name}세일`];
   
-  await supabase.from('coolbox_knowledge_master').upsert({
-    category_id: category_id,
+  const masterPayload = {
     item_name: item_name,
+    category_id: category_id,
     aliases: mockAliases,
     short_storage_guide: `${item_name}은(는) 신선 보관해야 합니다.`,
     easy_recipe: `1. 흐르는 물에 깨끗이 세척하기\n2. 조리 마지막 단계에 넣기`,
     nutrition_summary: `풍부한 무기질과 식이섬유를 포함하고 있어 식단 밸런스에 훌륭합니다.`,
     updated_at: new Date().toISOString()
-  }, { onConflict: 'item_name' });
+  };
+
+  await supabase.from('coolbox_knowledge_master').insert(masterPayload);
 
   await updateLastId(id);
-  console.log(`✅ [PART 2-폴백] '${item_name}' 모크 데이터 생성 및 마스터 동기화 업데이트 완료.`);
+  console.log(`✅ [PART 2-폴백] '${item_name}' 모크 데이터 생성 및 동기화 인덱스 업데이트 완료.`);
 }
 
 
@@ -285,19 +292,19 @@ async function retrieveKnowledgeForChatbot(userQuery) {
   console.log(`\n🤖 [PART 3] 챗봇의 질문 분석 시작: "${userQuery}"`);
 
   const extractedKeyword = "대파"; 
-  console.log(`- Step 3-A: 백과사전 마스터 테이블을 뒤져 '${extractedKeyword}'의 지식 세트 원샷 로드...`);
+  console.log(`- Step 3-A: 별칭 사전을 뒤져 '${extractedKeyword}'의 표준 식재료명 교정 조회...`);
   
-  const { data: masterData } = await supabase
+  const { data: cachedKnowledge } = await supabase
     .from('coolbox_knowledge_master')
     .select('item_name, short_storage_guide, easy_recipe, nutrition_summary')
-    .or(`item_name.eq.${extractedKeyword},aliases.cs.{${extractedKeyword}}`)
+    .contains('aliases', [extractedKeyword])
     .maybeSingle();
 
-  const standardName = masterData ? masterData.item_name : extractedKeyword;
-  console.log(`-> 교정 완료된 표준명: "${standardName}"`);
+  const standardName = cachedKnowledge ? cachedKnowledge.item_name : extractedKeyword;
+  console.log(`-> 교정 완료된 표준명 및 RAG 지식 로드 완료: "${standardName}"`);
 
   // [시나리오 4]: 'coolbox_price_history' 테이블에서 해당 품목의 최근 마트별 평균 가격 동향 수집
-  console.log(`- Step 3-B: 가격 변동 테이블(coolbox_price_history)에서 최근 평균/최저가 추이 로드...`);
+  console.log(`- Step 3-C: 가격 변동 테이블(coolbox_price_history)에서 최근 평균/최저가 추이 로드...`);
   const { data: priceStats } = await supabase
     .from('coolbox_price_history')
     .select('price, market_name, purchase_date')
@@ -305,9 +312,9 @@ async function retrieveKnowledgeForChatbot(userQuery) {
     .order('purchase_date', { ascending: false });
 
   console.log("✅ [PART 3] AI 챗봇이 답변을 생성하기 위한 핵심 Grounding Context 로드 완료.");
-  if (masterData) {
-    console.log(`>> 캐시된 보관법: ${masterData.short_storage_guide}`);
-    console.log(`>> 추천 요리법:\n${masterData.easy_recipe}`);
+  if (cachedKnowledge) {
+    console.log(`>> 캐시된 보관법: ${cachedKnowledge.short_storage_guide}`);
+    console.log(`>> 추천 요리법:\n${cachedKnowledge.easy_recipe}`);
   }
   if (priceStats && priceStats.length > 0) {
     console.log(`>> 최신 단가 히스토리: ${priceStats[0].market_name}에서 ${priceStats[0].price}원 수집됨.`);
